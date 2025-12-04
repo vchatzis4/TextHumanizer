@@ -68,29 +68,59 @@ public class LlmService : ILlmService
         _logger.LogInformation("Detecting AI text patterns");
 
         var prompt = PromptTemplates.GetDetectPrompt(request.Text);
-        var response = await SendChatCompletionAsync(prompt, cancellationToken);
+        var isGreekInput = IsGreekText(request.Text);
 
-        try
+        const int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            var cleanedResponse = CleanJsonResponse(response);
-            var detectResult = JsonSerializer.Deserialize<DetectJsonResult>(cleanedResponse, _jsonOptions);
+            var response = await SendChatCompletionAsync(prompt, cancellationToken);
 
-            if (detectResult == null)
+            try
             {
-                throw new InvalidOperationException("Failed to parse detection response");
+                var cleanedResponse = CleanJsonResponse(response);
+                var detectResult = JsonSerializer.Deserialize<DetectJsonResult>(cleanedResponse, _jsonOptions);
+
+                if (detectResult == null)
+                {
+                    throw new InvalidOperationException("Failed to parse detection response");
+                }
+
+                var reasons = detectResult.Reasons ?? new List<string>();
+
+                // Validate reasons language matches input
+                if (isGreekInput && reasons.Count > 0)
+                {
+                    var reasonsText = string.Join(" ", reasons);
+                    var validationResult = ValidateGreekText(reasonsText);
+
+                    if (!validationResult.IsValid)
+                    {
+                        _logger.LogWarning("Attempt {Attempt}: Detect reasons validation failed - {Reason}", attempt, validationResult.Reason);
+
+                        if (attempt < maxRetries)
+                            continue;
+
+                        // On final attempt, clean the reasons
+                        reasons = CleanGreekReasons(reasons);
+                    }
+                }
+
+                return new DetectResponse
+                {
+                    AiProbability = Math.Clamp(detectResult.Score, 0, 100),
+                    Reasons = reasons
+                };
             }
-
-            return new DetectResponse
+            catch (JsonException ex)
             {
-                AiProbability = Math.Clamp(detectResult.Score, 0, 100),
-                Reasons = detectResult.Reasons ?? new List<string>()
-            };
+                _logger.LogError(ex, "Failed to parse LLM detection response: {Response}", response);
+
+                if (attempt >= maxRetries)
+                    throw new InvalidOperationException("Failed to parse AI detection response from LLM", ex);
+            }
         }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "Failed to parse LLM detection response: {Response}", response);
-            throw new InvalidOperationException("Failed to parse AI detection response from LLM", ex);
-        }
+
+        throw new InvalidOperationException("Failed to get valid detection response after multiple attempts");
     }
 
     private async Task<string> SendChatCompletionAsync(string prompt, CancellationToken cancellationToken)
@@ -228,5 +258,29 @@ public class LlmService : ILlmService
         cleaned = Regex.Replace(cleaned, @"\s{2,}", " ");
 
         return cleaned.Trim();
+    }
+
+    private static List<string> CleanGreekReasons(List<string> reasons)
+    {
+        var cleanedReasons = new List<string>();
+
+        foreach (var reason in reasons)
+        {
+            var cleaned = CleanGreekText(reason);
+
+            // Only keep reasons that still have meaningful content after cleaning
+            if (!string.IsNullOrWhiteSpace(cleaned) && cleaned.Length >= 10)
+            {
+                cleanedReasons.Add(cleaned);
+            }
+        }
+
+        // If all reasons were removed, add a generic one in Greek
+        if (cleanedReasons.Count == 0)
+        {
+            cleanedReasons.Add("Το κείμενο αναλύθηκε για χαρακτηριστικά AI");
+        }
+
+        return cleanedReasons;
     }
 }
