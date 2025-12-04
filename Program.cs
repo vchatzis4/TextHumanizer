@@ -8,9 +8,22 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+
+        if (allowedOrigins != null && allowedOrigins.Length > 0)
+        {
+            // Production: restrict to specific origins
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
+        else
+        {
+            // Development: allow any origin
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
     });
 });
 
@@ -33,7 +46,15 @@ builder.Services.AddHttpClient<ILlmService, LlmService>(client =>
     {
         var baseUrl = builder.Configuration.GetValue<string>("LlmProvider:Groq:BaseUrl")
             ?? "https://api.groq.com/openai/";
-        var apiKey = builder.Configuration.GetValue<string>("LlmProvider:Groq:ApiKey");
+
+        // Check environment variable first, then fall back to config
+        var apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY")
+            ?? builder.Configuration.GetValue<string>("LlmProvider:Groq:ApiKey");
+
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            throw new InvalidOperationException("GROQ_API_KEY environment variable or LlmProvider:Groq:ApiKey config is required");
+        }
 
         client.BaseAddress = new Uri(baseUrl);
         client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
@@ -55,6 +76,18 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+else
+{
+    // Production: Handle HTTPS behind reverse proxy (Azure, Railway, etc.)
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+            | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+    });
+
+    // Redirect HTTP to HTTPS
+    app.UseHttpsRedirection();
 }
 
 // Global exception handler
