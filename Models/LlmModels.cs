@@ -9,6 +9,9 @@ public class ChatCompletionRequest
 
     [JsonPropertyName("messages")]
     public required List<ChatMessage> Messages { get; set; }
+
+    [JsonPropertyName("max_tokens")]
+    public int MaxTokens { get; set; } = 8192;
 }
 
 public class ChatMessage
