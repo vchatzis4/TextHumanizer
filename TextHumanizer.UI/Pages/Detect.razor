@@ -1,0 +1,164 @@
+@page "/detect"
+@inject IApiService ApiService
+
+<PageTitle>Detect AI - TextHumanizer</PageTitle>
+
+<div class="page detect-page">
+    <div class="page-header">
+        <h1>Detect AI Text</h1>
+        <p>Analyze text to determine the probability it was written by an AI.</p>
+    </div>
+
+    <div class="content-grid">
+        <div class="input-section">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Text to Analyze</h2>
+                </div>
+                <div class="card-body">
+                    <textarea
+                        @bind="_request.Text"
+                        @bind:event="oninput"
+                        class="textarea"
+                        placeholder="Paste the text you want to analyze..."
+                        rows="12"></textarea>
+
+                    <div class="input-footer">
+                        <span class="char-count">@_request.Text.Length characters</span>
+                        <button
+                            class="btn btn-primary"
+                            @onclick="DetectAI"
+                            disabled="@(_isLoading || string.IsNullOrWhiteSpace(_request.Text))">
+                            @if (_isLoading)
+                            {
+                                <span class="spinner"></span>
+                                <span>Analyzing...</span>
+                            }
+                            else
+                            {
+                                <span>Analyze</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="output-section">
+            <div class="card @(_hasResult ? "has-result" : "")">
+                <div class="card-header">
+                    <h2>Analysis Result</h2>
+                </div>
+                <div class="card-body">
+                    @if (_hasResult && _response != null)
+                    {
+                        <div class="detection-result">
+                            <div class="probability-display">
+                                <div class="probability-circle @GetProbabilityClass(_response.AiProbability)">
+                                    <span class="probability-value">@_response.AiProbability%</span>
+                                    <span class="probability-label">AI Probability</span>
+                                </div>
+                            </div>
+
+                            <div class="probability-bar">
+                                <div class="bar-track">
+                                    <div class="bar-fill @GetProbabilityClass(_response.AiProbability)"
+                                         style="width: @(_response.AiProbability)%"></div>
+                                </div>
+                                <div class="bar-labels">
+                                    <span>Human</span>
+                                    <span>AI</span>
+                                </div>
+                            </div>
+
+                            <div class="verdict @GetProbabilityClass(_response.AiProbability)">
+                                @GetVerdict(_response.AiProbability)
+                            </div>
+
+                            @if (_response.Reasons.Any())
+                            {
+                                <div class="reasons">
+                                    <h3>Reasons</h3>
+                                    <ul class="reasons-list">
+                                        @foreach (var reason in _response.Reasons)
+                                        {
+                                            <li>@reason</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (_error != null)
+                    {
+                        <div class="error-message">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                            <span>@_error</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="placeholder-text">
+                            Analysis results will appear here...
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DetectRequest _request = new();
+    private DetectResponse? _response;
+    private bool _isLoading;
+    private bool _hasResult;
+    private string? _error;
+
+    private async Task DetectAI()
+    {
+        _isLoading = true;
+        _error = null;
+        _hasResult = false;
+
+        try
+        {
+            _response = await ApiService.DetectAsync(_request);
+            _hasResult = _response != null;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to analyze text: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string GetProbabilityClass(int probability)
+    {
+        return probability switch
+        {
+            <= 30 => "low",
+            <= 60 => "medium",
+            _ => "high"
+        };
+    }
+
+    private static string GetVerdict(int probability)
+    {
+        return probability switch
+        {
+            <= 20 => "Likely Human Written",
+            <= 40 => "Probably Human Written",
+            <= 60 => "Uncertain Origin",
+            <= 80 => "Probably AI Generated",
+            _ => "Likely AI Generated"
+        };
+    }
+}

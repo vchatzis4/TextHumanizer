@@ -1,0 +1,96 @@
+############################
+# Build results
+############################
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+
+############################
+# Visual Studio
+############################
+.vs/                           
+*.suo
+*.user
+*.userosscache
+*.rsuser
+*.cache
+*.dbmdl
+*.jfm
+*.psess
+*.vsp
+*.vspscc
+*.vssscc
+
+# VS temporary folders
+FileContentIndex/              
+DesignTimeBuild/               
+.vsconfig
+Generated\ Files/
+
+############################
+# Rider
+############################
+.idea/
+
+############################
+# VS Code
+############################
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+############################
+# Secrets / Config
+############################
+secrets.json
+.env
+.env.local
+appsettings.Local.json
+*.local.json
+# appsettings.json contains API keys - use appsettings.template.json as reference
+appsettings.json
+
+############################
+# Logs
+############################
+*.log
+logs/
+
+############################
+# OS files
+############################
+.DS_Store
+Thumbs.db
+
+############################
+# NuGet
+############################
+*.nupkg
+**/packages/*
+project.lock.json
+project.fragment.lock.json
+
+############################
+# ASP.NET Scaffolding
+############################
+ScaffoldingReadMe.txt
+
+############################
+# Publish output
+############################
+publish/
+
+############################
+# Other generated files
+############################
+*.tmp
+*.tmp*
+*.bin                          
+*.dtbcache

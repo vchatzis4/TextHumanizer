@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+  <!-- Exclude UI project folder from compilation -->
+  <ItemGroup>
+    <Compile Remove="TextHumanizer.UI\**" />
+    <Content Remove="TextHumanizer.UI\**" />
+    <EmbeddedResource Remove="TextHumanizer.UI\**" />
+    <None Remove="TextHumanizer.UI\**" />
+  </ItemGroup>
+
+</Project>

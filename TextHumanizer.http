@@ -1,0 +1,44 @@
+@TextHumanizer_HostAddress = http://localhost:5054
+
+### Humanize text - Casual tone
+POST {{TextHumanizer_HostAddress}}/api/humanize
+Content-Type: application/json
+
+{
+  "text": "It is crucial to understand that artificial intelligence has become an increasingly important aspect of modern society. Furthermore, the implications of this technology are far-reaching and multifaceted. In conclusion, we must carefully consider the ethical dimensions of AI development.",
+  "tone": "casual"
+}
+
+### Humanize text - Formal tone
+POST {{TextHumanizer_HostAddress}}/api/humanize
+Content-Type: application/json
+
+{
+  "text": "Moreover, the landscape of digital transformation is rapidly evolving. It's important to note that organizations must leverage these technologies to remain competitive. Additionally, the tapestry of innovation continues to unfold in unprecedented ways.",
+  "tone": "formal"
+}
+
+### Humanize text - Academic tone
+POST {{TextHumanizer_HostAddress}}/api/humanize
+Content-Type: application/json
+
+{
+  "text": "This study delves into the crucial aspects of machine learning algorithms. Furthermore, our analysis reveals significant patterns in the data. In today's world, such findings are increasingly relevant to the broader scientific community.",
+  "tone": "academic"
+}
+
+### Detect AI-generated text (likely AI)
+POST {{TextHumanizer_HostAddress}}/api/detect
+Content-Type: application/json
+
+{
+  "text": "It is crucial to understand that artificial intelligence represents a paradigm shift in how we approach complex problems. Moreover, the implications of this technology are far-reaching and multifaceted. Furthermore, we must carefully consider the ethical dimensions of AI development. In conclusion, it's important to note that the landscape of innovation continues to evolve in unprecedented ways."
+}
+
+### Detect AI-generated text (likely human)
+POST {{TextHumanizer_HostAddress}}/api/detect
+Content-Type: application/json
+
+{
+  "text": "So I've been messing around with ChatGPT lately and honestly? It's pretty wild. Sometimes it nails exactly what I'm looking for, other times it's way off base. My buddy thinks it'll replace programmers but I don't buy it - at least not yet. We'll see though."
+}
