@@ -10,9 +10,19 @@ RUN dotnet restore
 COPY . .
 RUN dotnet publish -c Release -o /app/publish
 
-# Runtime stage - use nginx to serve static files
-FROM nginx:alpine
-COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
+# Runtime stage - use Node to serve static files
+FROM node:20-alpine
+WORKDIR /app
 
-EXPOSE 80
+# Install serve globally
+RUN npm install -g serve
+
+# Copy built files
+COPY --from=build /app/publish/wwwroot .
+
+# Railway sets PORT env variable
+ENV PORT=8080
+EXPOSE 8080
+
+# Serve with single-page app mode (-s)
+CMD ["sh", "-c", "serve -s -l $PORT"]
