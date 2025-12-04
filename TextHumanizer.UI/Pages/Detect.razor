@@ -6,7 +6,7 @@
 <div class="page detect-page">
     <div class="page-header">
         <h1>Detect AI Text</h1>
-        <p>Analyze text to determine the probability it was written by an AI.</p>
+        <p>Analyze text to determine the probability it was written by AI.</p>
     </div>
 
     <div class="content-grid">
@@ -32,10 +32,14 @@
                             @if (_isLoading)
                             {
                                 <span class="spinner"></span>
-                                <span>Analyzing...</span>
+                                <span>Analyzing</span>
                             }
                             else
                             {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="icon-sm">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <path d="M21 21l-4.35-4.35"></path>
+                                </svg>
                                 <span>Analyze</span>
                             }
                         </button>
@@ -50,7 +54,16 @@
                     <h2>Analysis Result</h2>
                 </div>
                 <div class="card-body">
-                    @if (_hasResult && _response != null)
+                    @if (_isLoading)
+                    {
+                        <div class="skeleton-container">
+                            <div class="skeleton skeleton-circle"></div>
+                            <div class="skeleton skeleton-bar"></div>
+                            <div class="skeleton skeleton-badge"></div>
+                            <div class="skeleton skeleton-box"></div>
+                        </div>
+                    }
+                    else if (_hasResult && _response != null)
                     {
                         <div class="detection-result">
                             <div class="probability-display">
@@ -78,7 +91,7 @@
                             @if (_response.Reasons.Any())
                             {
                                 <div class="reasons">
-                                    <h3>Reasons</h3>
+                                    <h3>Analysis</h3>
                                     <ul class="reasons-list">
                                         @foreach (var reason in _response.Reasons)
                                         {
@@ -92,7 +105,7 @@
                     else if (_error != null)
                     {
                         <div class="error-message">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <line x1="12" y1="8" x2="12" y2="12"></line>
                                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -103,7 +116,7 @@
                     else
                     {
                         <div class="placeholder-text">
-                            Analysis results will appear here...
+                            Analysis results will appear here
                         </div>
                     }
                 </div>
