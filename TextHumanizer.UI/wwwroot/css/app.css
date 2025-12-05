@@ -742,11 +742,165 @@ body {
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
+.confidence-badge {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border);
+}
+
+.summary-text {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 12px 16px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--glass-border);
+}
+
+/* Signals Section */
+.signals-section {
+    margin-top: 20px;
+}
+
+.signals-section h3,
+.stats-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.signals-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.signal-item {
+    background: var(--bg-elevated);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    border: 1px solid var(--glass-border);
+}
+
+.signal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.signal-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.signal-likelihood {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.signal-likelihood.low {
+    background: var(--success-glow);
+    color: var(--success);
+}
+
+.signal-likelihood.medium {
+    background: var(--warning-glow);
+    color: var(--warning);
+}
+
+.signal-likelihood.high {
+    background: var(--danger-glow);
+    color: var(--danger);
+}
+
+.signal-bar {
+    height: 4px;
+    background: var(--bg-secondary);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.signal-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+}
+
+.signal-fill.low {
+    background: var(--success);
+}
+
+.signal-fill.medium {
+    background: var(--warning);
+}
+
+.signal-fill.high {
+    background: var(--danger);
+}
+
+.signal-interpretation {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Stats Section */
+.stats-section {
+    margin-top: 20px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+@media (max-width: 600px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.stat-item {
+    background: var(--bg-elevated);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    text-align: center;
+    border: 1px solid var(--glass-border);
+}
+
+.stat-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
 .reasons {
     background: var(--bg-elevated);
     border-radius: var(--radius-md);
     padding: 16px;
     border: 1px solid var(--glass-border);
+    margin-top: 20px;
 }
 
 .reasons h3 {

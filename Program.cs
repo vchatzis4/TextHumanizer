@@ -37,6 +37,10 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Register AI detection services
+builder.Services.AddSingleton<ITextAnalysisService, TextAnalysisService>();
+builder.Services.AddSingleton<IAiDetectionService, AiDetectionService>();
+
 // Configure LLM Provider HttpClient
 var provider = builder.Configuration.GetValue<string>("LlmProvider:Provider") ?? "LmStudio";
 

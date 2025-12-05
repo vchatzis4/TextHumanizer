@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using TextHumanizer.Models;
 
 namespace TextHumanizer.Models.Requests;
 
@@ -12,11 +13,4 @@ public class HumanizeRequest
     [Required]
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public required Tone Tone { get; set; }
-}
-
-public enum Tone
-{
-    Casual,
-    Formal,
-    Academic
 }

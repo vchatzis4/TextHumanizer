@@ -6,7 +6,7 @@
 <div class="page detect-page">
     <div class="page-header">
         <h1>Detect AI Text</h1>
-        <p>Analyze text to determine the probability it was written by AI.</p>
+        <p>Analyze text using statistical patterns and AI to determine if it was machine-generated.</p>
     </div>
 
     <div class="content-grid">
@@ -52,6 +52,12 @@
             <div class="card @(_hasResult ? "has-result" : "")">
                 <div class="card-header">
                     <h2>Analysis Result</h2>
+                    @if (_hasResult && _response != null)
+                    {
+                        <span class="confidence-badge">
+                            @((int)(_response.Confidence * 100))% confidence
+                        </span>
+                    }
                 </div>
                 <div class="card-body">
                     @if (_isLoading)
@@ -88,10 +94,65 @@
                                 @GetVerdict(_response.AiProbability)
                             </div>
 
+                            @if (!string.IsNullOrEmpty(_response.Summary))
+                            {
+                                <div class="summary-text">@_response.Summary</div>
+                            }
+
+                            @if (_response.Signals.Any())
+                            {
+                                <div class="signals-section">
+                                    <h3>Detection Signals</h3>
+                                    <div class="signals-list">
+                                        @foreach (var signal in _response.Signals)
+                                        {
+                                            <div class="signal-item">
+                                                <div class="signal-header">
+                                                    <span class="signal-name">@signal.Name</span>
+                                                    <span class="signal-likelihood @GetSignalClass(signal.AiLikelihood)">
+                                                        @signal.AiLikelihood%
+                                                    </span>
+                                                </div>
+                                                <div class="signal-bar">
+                                                    <div class="signal-fill @GetSignalClass(signal.AiLikelihood)"
+                                                         style="width: @signal.AiLikelihood%"></div>
+                                                </div>
+                                                <span class="signal-interpretation">@signal.Interpretation</span>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            @if (_response.Stats != null)
+                            {
+                                <div class="stats-section">
+                                    <h3>Text Statistics</h3>
+                                    <div class="stats-grid">
+                                        <div class="stat-item">
+                                            <span class="stat-value">@_response.Stats.TotalWords</span>
+                                            <span class="stat-label">Words</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-value">@_response.Stats.TotalSentences</span>
+                                            <span class="stat-label">Sentences</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-value">@_response.Stats.UniqueWords</span>
+                                            <span class="stat-label">Unique Words</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-value">@_response.Stats.VocabularyDiversity%</span>
+                                            <span class="stat-label">Vocab Diversity</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
                             @if (_response.Reasons.Any())
                             {
                                 <div class="reasons">
-                                    <h3>Analysis</h3>
+                                    <h3>Analysis Details</h3>
                                     <ul class="reasons-list">
                                         @foreach (var reason in _response.Reasons)
                                         {
@@ -158,6 +219,16 @@
         return probability switch
         {
             <= 30 => "low",
+            <= 60 => "medium",
+            _ => "high"
+        };
+    }
+
+    private static string GetSignalClass(int likelihood)
+    {
+        return likelihood switch
+        {
+            <= 40 => "low",
             <= 60 => "medium",
             _ => "high"
         };

@@ -13,12 +13,21 @@ public class LlmService : ILlmService
     private readonly ILogger<LlmService> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly string? _model;
+    private readonly ITextAnalysisService _textAnalysisService;
+    private readonly IAiDetectionService _aiDetectionService;
 
-    public LlmService(HttpClient httpClient, ILogger<LlmService> logger, IConfiguration configuration)
+    public LlmService(
+        HttpClient httpClient,
+        ILogger<LlmService> logger,
+        IConfiguration configuration,
+        ITextAnalysisService textAnalysisService,
+        IAiDetectionService aiDetectionService)
     {
         _httpClient = httpClient;
         _logger = logger;
         _model = configuration.GetValue<string>("LlmProvider:Model");
+        _textAnalysisService = textAnalysisService;
+        _aiDetectionService = aiDetectionService;
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
@@ -65,62 +74,98 @@ public class LlmService : ILlmService
 
     public async Task<DetectResponse> DetectAiTextAsync(DetectRequest request, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Detecting AI text patterns");
+        _logger.LogInformation("Detecting AI text patterns using statistical analysis + LLM");
 
+        // Step 1: Perform statistical text analysis
+        var textAnalysis = _textAnalysisService.Analyze(request.Text);
+        _logger.LogDebug("Statistical analysis complete: {WordCount} words, {Sentences} sentences",
+            textAnalysis.TotalWords, textAnalysis.TotalSentences);
+
+        // Step 2: Get LLM analysis for pattern detection
         var prompt = PromptTemplates.GetDetectPrompt(request.Text);
         var isGreekInput = IsGreekText(request.Text);
+        int? llmProbability = null;
+        var reasons = new List<string>();
 
         const int maxRetries = 3;
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            var response = await SendChatCompletionAsync(prompt, cancellationToken);
-
             try
             {
+                var response = await SendChatCompletionAsync(prompt, cancellationToken);
                 var cleanedResponse = CleanJsonResponse(response);
                 var detectResult = JsonSerializer.Deserialize<DetectJsonResult>(cleanedResponse, _jsonOptions);
 
-                if (detectResult == null)
+                if (detectResult != null)
                 {
-                    throw new InvalidOperationException("Failed to parse detection response");
-                }
+                    llmProbability = Math.Clamp(detectResult.Score, 0, 100);
+                    reasons = detectResult.Reasons ?? new List<string>();
 
-                var reasons = detectResult.Reasons ?? new List<string>();
-
-                // Validate reasons language matches input
-                if (isGreekInput && reasons.Count > 0)
-                {
-                    var reasonsText = string.Join(" ", reasons);
-                    var validationResult = ValidateGreekText(reasonsText);
-
-                    if (!validationResult.IsValid)
+                    // Validate reasons language matches input
+                    if (isGreekInput && reasons.Count > 0)
                     {
-                        _logger.LogWarning("Attempt {Attempt}: Detect reasons validation failed - {Reason}", attempt, validationResult.Reason);
+                        var reasonsText = string.Join(" ", reasons);
+                        var validationResult = ValidateGreekText(reasonsText);
 
-                        if (attempt < maxRetries)
-                            continue;
+                        if (!validationResult.IsValid)
+                        {
+                            _logger.LogWarning("Attempt {Attempt}: Detect reasons validation failed - {Reason}", attempt, validationResult.Reason);
 
-                        // On final attempt, clean the reasons
-                        reasons = CleanGreekReasons(reasons);
+                            if (attempt < maxRetries)
+                                continue;
+
+                            reasons = CleanGreekReasons(reasons);
+                        }
                     }
+                    break;
                 }
-
-                return new DetectResponse
-                {
-                    AiProbability = Math.Clamp(detectResult.Score, 0, 100),
-                    Reasons = reasons
-                };
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "Failed to parse LLM detection response: {Response}", response);
-
+                _logger.LogWarning(ex, "Attempt {Attempt}: Failed to parse LLM response", attempt);
                 if (attempt >= maxRetries)
-                    throw new InvalidOperationException("Failed to parse AI detection response from LLM", ex);
+                {
+                    _logger.LogError("LLM analysis failed after {MaxRetries} attempts, using statistical analysis only", maxRetries);
+                }
             }
         }
 
-        throw new InvalidOperationException("Failed to get valid detection response after multiple attempts");
+        // Step 3: Combine statistical analysis with LLM analysis
+        var detectionResult = _aiDetectionService.CalculateAiProbability(textAnalysis, llmProbability);
+
+        // Build response with detailed metrics
+        return new DetectResponse
+        {
+            AiProbability = detectionResult.AiProbability,
+            Reasons = reasons.Count > 0 ? reasons : GenerateReasonsFromSignals(detectionResult.Signals),
+            Confidence = detectionResult.Confidence,
+            Summary = detectionResult.Summary,
+            Signals = detectionResult.Signals.Select(s => new SignalResponse
+            {
+                Name = s.Name,
+                Value = s.Value,
+                AiLikelihood = (int)Math.Round(s.AiLikelihood * 100),
+                Interpretation = s.Interpretation
+            }).ToList(),
+            Stats = new TextStatsResponse
+            {
+                TotalWords = textAnalysis.TotalWords,
+                TotalSentences = textAnalysis.TotalSentences,
+                UniqueWords = textAnalysis.UniqueWords,
+                VocabularyDiversity = Math.Round(textAnalysis.VocabularyDiversity * 100, 1),
+                AverageSentenceLength = Math.Round(textAnalysis.AverageSentenceLength, 1)
+            }
+        };
+    }
+
+    private static List<string> GenerateReasonsFromSignals(List<DetectionSignal> signals)
+    {
+        return signals
+            .Where(s => Math.Abs(s.AiLikelihood - 0.5) > 0.1) // Only significant signals
+            .OrderByDescending(s => Math.Abs(s.AiLikelihood - 0.5))
+            .Take(4)
+            .Select(s => s.Interpretation)
+            .ToList();
     }
 
     private async Task<string> SendChatCompletionAsync(string prompt, CancellationToken cancellationToken)
