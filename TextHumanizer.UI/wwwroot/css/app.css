@@ -89,9 +89,26 @@ body {
     overflow-x: hidden;
 }
 
-/* Focus states */
+/* Focus states - remove all default outlines */
 *:focus {
     outline: none;
+}
+
+/* Remove focus from non-interactive containers */
+main:focus,
+div:focus,
+section:focus,
+article:focus,
+.page:focus,
+.main-content:focus,
+.hero:focus,
+h1:focus,
+h2:focus,
+p:focus,
+span:focus {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 /* Only show focus outline on interactive elements */
