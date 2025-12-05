@@ -38,7 +38,15 @@ public class LlmService : ILlmService
     {
         _logger.LogInformation("Humanizing text with tone: {Tone}", request.Tone);
 
-        var prompt = PromptTemplates.GetHumanizePrompt(request.Text, request.Tone.ToString().ToLower());
+        // Pre-analysis: identify AI patterns in the input
+        var analysis = _textAnalysisService.Analyze(request.Text);
+        var detectionResult = _aiDetectionService.CalculateAiProbability(analysis);
+        var analysisHints = GenerateHumanizationHints(detectionResult, analysis);
+
+        _logger.LogDebug("Pre-analysis complete. AI Score: {Score}, Hints: {Hints}",
+            detectionResult.AiProbability, analysisHints ?? "none");
+
+        var prompt = PromptTemplates.GetHumanizePrompt(request.Text, request.Tone.ToString().ToLower(), analysisHints);
         var isGreekInput = IsGreekText(request.Text);
 
         const int maxRetries = 3;
@@ -327,5 +335,94 @@ public class LlmService : ILlmService
         }
 
         return cleanedReasons;
+    }
+
+    private string? GenerateHumanizationHints(AiDetectionResult detection, TextAnalysisResult analysis)
+    {
+        // Only generate hints if AI probability is significant
+        if (detection.AiProbability < 30)
+            return null;
+
+        var hints = new List<string>();
+        var isGreek = analysis.IsGreekText;
+
+        // Get signals with high AI likelihood (sorted by significance)
+        var problematicSignals = detection.Signals
+            .Where(s => s.AiLikelihood > 0.55)
+            .OrderByDescending(s => s.AiLikelihood)
+            .Take(4)
+            .ToList();
+
+        foreach (var signal in problematicSignals)
+        {
+            var hint = GetHintForSignal(signal.Name, signal.AiLikelihood, isGreek);
+            if (!string.IsNullOrEmpty(hint))
+                hints.Add(hint);
+        }
+
+        if (hints.Count == 0)
+            return null;
+
+        return string.Join("\n", hints.Select((h, i) => $"{i + 1}. {h}"));
+    }
+
+    private static string? GetHintForSignal(string signalName, double aiLikelihood, bool isGreek)
+    {
+        // Map signal names to specific humanization instructions
+        var intensity = aiLikelihood > 0.7 ? "CRITICAL" : "Important";
+
+        return signalName switch
+        {
+            // Universal signals
+            "Burstiness" or "Εκρηκτικότητα" => isGreek
+                ? $"[{intensity}] Οι προτάσεις έχουν πολύ ομοιόμορφο μήκος. Ανάμειξε μικρές (5-10 λέξεις) με μεγαλύτερες (20-30 λέξεις)."
+                : $"[{intensity}] Sentences are too uniform in length. Mix short (5-10 words) with longer ones (20-30 words).",
+
+            "Vocabulary Diversity" or "Ποικιλία Λεξιλογίου" => isGreek
+                ? $"[{intensity}] Περιορισμένο λεξιλόγιο. Χρησιμοποίησε συνώνυμα και πιο ποικίλες εκφράσεις."
+                : $"[{intensity}] Limited vocabulary. Use synonyms and more varied expressions.",
+
+            "Sentence Variance" or "Διακύμανση Προτάσεων" => isGreek
+                ? $"[{intensity}] Οι προτάσεις είναι πολύ ομοιόμορφες. Δημιούργησε μεγαλύτερη ποικιλία στη δομή."
+                : $"[{intensity}] Sentences are too uniform. Create more variety in structure.",
+
+            "Repetition" or "Επανάληψη" => isGreek
+                ? $"[{intensity}] Εντοπίστηκαν επαναλαμβανόμενες φράσεις. Αντικατέστησε με διαφορετικές διατυπώσεις."
+                : $"[{intensity}] Repetitive phrases detected. Replace with different phrasings.",
+
+            "Starter Diversity" or "Ποικιλία Αρχών" => isGreek
+                ? $"[{intensity}] Οι προτάσεις ξεκινούν με τον ίδιο τρόπο. Ποικίλε τις αρχές των προτάσεων."
+                : $"[{intensity}] Sentences start the same way. Vary sentence beginnings.",
+
+            "Contractions" => isGreek
+                ? null // Not applicable for Greek
+                : $"[{intensity}] Text lacks natural contractions. Use don't, won't, can't, it's where appropriate.",
+
+            // Greek formal text signals
+            "Γενικές Φράσεις" => $"[{intensity}] Αφαίρεσε γενικές φράσεις όπως 'σύμφωνα με έρευνες'. Χρησιμοποίησε συγκεκριμένες αναφορές ή αφαίρεσέ τες.",
+
+            "Εισαγωγικές Φράσεις" => $"[{intensity}] Αφαίρεσε φράσεις όπως 'Είναι σημαντικό να σημειωθεί'. Γράψε απευθείας.",
+
+            "Μεταβατικές Φράσεις" => $"[{intensity}] Υπερβολική χρήση μεταβατικών (επιπλέον, συνεπώς). Χρησιμοποίησε πιο φυσικές συνδέσεις ή καθόλου.",
+
+            "Υπερ-επισημότητα" => $"[{intensity}] Υπερβολικά επίσημο ύφος. Αντικατέστησε λέξεις όπως 'καίριος', 'θεμελιώδης' με απλούστερες.",
+
+            // Greek informal text signals (inverted - low values are problematic)
+            "Filler Words" => $"[{intensity}] Το κείμενο είναι πολύ 'καθαρό'. Πρόσθεσε φυσικά filler words όπως 'δηλαδή', 'βασικά' όπου ταιριάζει.",
+
+            "Συντομεύσεις" => $"[{intensity}] Καμία συντόμευση. Για casual ύφος, πρόσθεσε κάποιες (πχ, κλπ, κτλ).",
+
+            "Καθομιλουμένη" => $"[{intensity}] Λείπει η καθομιλουμένη. Χρησιμοποίησε πιο φυσικές εκφράσεις.",
+
+            "Προσωπικές Αντωνυμίες" => isGreek
+                ? $"[{intensity}] Απρόσωπο ύφος. Χρησιμοποίησε περισσότερες προσωπικές αντωνυμίες (εγώ, εμείς, μου)."
+                : $"[{intensity}] Impersonal style. Use more personal pronouns (I, we, my).",
+
+            "Word Length Variance" => isGreek
+                ? $"[{intensity}] Ομοιόμορφο μήκος λέξεων. Χρησιμοποίησε μίγμα μικρών και μεγάλων λέξεων."
+                : $"[{intensity}] Uniform word lengths. Use a mix of short and long words.",
+
+            _ => null
+        };
     }
 }

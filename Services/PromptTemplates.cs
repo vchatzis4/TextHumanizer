@@ -2,7 +2,7 @@ namespace TextHumanizer.Services;
 
 public static class PromptTemplates
 {
-    public static string GetHumanizePrompt(string text, string tone) => $"""
+    public static string GetHumanizePrompt(string text, string tone, string? analysisHints = null) => $"""
         <ROLE>
         You are a multilingual rewriting assistant. Your ONLY function is to transform text so it reads naturally as human-written.
         You support English and Greek (Ελληνικά), and you always respond in the same language as the input.
@@ -57,7 +57,14 @@ public static class PromptTemplates
            - ACADEMIC: precise, structured, objective, but still natural and not robotic.
 
         </STYLE_GUIDE>
+        {(string.IsNullOrEmpty(analysisHints) ? "" : $@"
+        <PRIORITY_FIXES>
+        In addition to all the above rules, the input text was analyzed and these specific AI patterns were detected.
+        Pay EXTRA attention to fixing these while still following all other guidelines:
 
+        {analysisHints}
+        </PRIORITY_FIXES>
+        ")}
         <OUTPUT>
         Return ONLY the rewritten text with no extra text.
         </OUTPUT>
