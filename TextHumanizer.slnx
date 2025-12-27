@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="TextHumanizer.csproj" />
+  <Project Path="TextHumanizer.Tests/TextHumanizer.Tests.csproj" />
   <Project Path="TextHumanizer.UI/TextHumanizer.UI.csproj" />
 </Solution>

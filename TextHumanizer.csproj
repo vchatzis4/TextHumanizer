@@ -18,4 +18,12 @@
     <None Remove="TextHumanizer.UI\**" />
   </ItemGroup>
 
+  <!-- Exclude Tests project folder from compilation -->
+  <ItemGroup>
+    <Compile Remove="TextHumanizer.Tests\**" />
+    <Content Remove="TextHumanizer.Tests\**" />
+    <EmbeddedResource Remove="TextHumanizer.Tests\**" />
+    <None Remove="TextHumanizer.Tests\**" />
+  </ItemGroup>
+
 </Project>
