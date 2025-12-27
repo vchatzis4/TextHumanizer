@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TextHumanizer.Interfaces;
 using TextHumanizer.Models.Requests;
 using TextHumanizer.Models.Responses;
@@ -19,8 +20,10 @@ public class TextController : ControllerBase
     }
 
     [HttpPost("humanize")]
+    [EnableRateLimiting("humanize")]
     [ProducesResponseType(typeof(HumanizeResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<HumanizeResponse>> Humanize(
         [FromBody] HumanizeRequest request,
@@ -33,8 +36,10 @@ public class TextController : ControllerBase
     }
 
     [HttpPost("detect")]
+    [EnableRateLimiting("detect")]
     [ProducesResponseType(typeof(DetectResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<DetectResponse>> Detect(
         [FromBody] DetectRequest request,

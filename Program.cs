@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using TextHumanizer.Interfaces;
 using TextHumanizer.Services;
 
@@ -73,6 +74,68 @@ builder.Services.AddHttpClient<ILlmService, LlmService>(client =>
     client.Timeout = TimeSpan.FromMinutes(2);
 });
 
+// Configure Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Global rate limit: 30 requests per minute per IP (matches Groq free tier)
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 2
+            }));
+
+    // Specific policy for humanize endpoint (more expensive operation)
+    options.AddPolicy("humanize", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 2
+            }));
+
+    // Specific policy for detect endpoint
+    options.AddPolicy("detect", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 15,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 2
+            }));
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+
+        var retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfterValue)
+            ? retryAfterValue.TotalSeconds
+            : 60;
+
+        context.HttpContext.Response.Headers.RetryAfter = retryAfter.ToString();
+
+        var problemDetails = new Microsoft.AspNetCore.Mvc.ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Too Many Requests",
+            Detail = $"Rate limit exceeded. Please try again after {retryAfter:F0} seconds."
+        };
+
+        await context.HttpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
+    };
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
@@ -122,6 +185,7 @@ app.UseExceptionHandler(errorApp =>
 });
 
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 
